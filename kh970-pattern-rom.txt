@@ -1,0 +1,40 @@
+# KH970 (CB-1) pattern data format in ROM
+
+The KH970 ROM is 512 kilobytes long and contains data for 683 knitting patterns.
+
+## Pattern index
+
+At offset 0x50000 is a block of 8196 bytes. It is a table of 12-bytes long records, so there are 683 entries.
+
+Each record is structured as follows:
+- bytes 0: the pattern type, either `02` (monochrome) or `03` (multicolor).
+- byte 1 is a fixed value of `00`.
+- bytes 2 and 3: the pattern number in little-endian BCD, e.g. `01 00` designates pattern `1`, `19 06` designates pattern `619`.
+- bytes 4 and 5: the pattern width in little-endian BCD, e.g. `66 00` for a `66` pixels wide pattern, or `00 01` for a `100` pixels wide pattern.
+- bytes 6 and 7: the pattern height in little-endian BCD, e.g. `50 00` for a `50` pixels high pattern, or `00 02` for a `200` pixels high pattern.
+- byte 8 is a fixed value of `00`.
+- bytes 9, 10 and 11 contain the offset to the start of the pattern, but need some swizzling, with byte 9 being the highest-order byte, byte 11 the middle byte and byte 10 being the lowest-order byte. For example, bytes `05 04 20` translate to offset `0x052004`, and bytes `07 14 a7` translate to offset `0x07a714`.
+
+## Pattern structure
+
+At the start offset of a pattern, is first found Memo data, in the form of 4 bits per pattern row, starting from the bottom of the pattern.  In each Memo data byte, the 4 low-order bits are associated with the first (i.e. lowest) of the two rows, and the 4 high-order bits are associated with the next (highest) row. The Memo data block has therefore half as many bytes as the pattern is high (rounded up if the pattern height is odd).
+
+For example, if the Memo data bytes for a 4-row pattern are `12 31`, then the Memo data for each of the rows (from bottom to top) are `2, 1, 1, 3`.
+
+Memo values of `10` represent a switch to Normal (open) lace, represented as `N` in the printed charts. Memo values of `11` (`0xb`) represent a switch to Fine lace, represented as `F` in the printed charts. 
+
+Just after the Memo data, the pattern bitmap starts. It consists of as many rows as the pattern is high. Pattern rows are stored bottom to top.
+
+### Monochrome bitmaps (pattern type `02`)
+
+For patterns of type `02`, pattern pixels are stored left-to-right, with the least significant bit of each byte corresponding to the leftmost pixel. Each pattern row is padded to a multiple of 8 bits.
+
+### Multicolor bitmaps (pattern type `03`)
+
+To parse a multicolor bitmap, first parse it as a monochrome bitmap.
+
+To obtain the final multicolor bitmap, combine every block of three rows from the monochrome bitmap. At each column position, only one of the three bitmap rows will have a `1` value. The pixel value for the multicolor bitmap is equal to the Memo data associated with the monochrome bitmap row that has the `1` value at that pixel.
+
+For example, if the first three rows of the pattern parsed as a monochrome bitmap are (in binary) `11000011`, `00100100`, `00011000`, and the respective Memo data for these rows are `2`, `3` and `4`, then the pixel values for the resulting multicolor row should be `2, 2, 3, 4, 4, 3, 2, 2`.
+
+The height specified in the pattern table for a multicolor pattern is therefore three times the actual height of the pattern, i.e. a 50 row multicolor pattern will be specified as being 150 rows in the table.
