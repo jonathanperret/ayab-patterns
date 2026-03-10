@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StitchWorld Lace Chart Browser</title>
+<style>
+:root {
+    color-scheme: light;
+    --bg: #f3efe4;
+    --panel: #fffdf7;
+    --ink: #2f261a;
+    --muted: #766650;
+    --line: #d8ccb7;
+    --accent: #9c4f2f;
+    --accent-soft: #f1ddd1;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: radial-gradient(circle at top, #fff9ef 0%, var(--bg) 58%, #e7dcc7 100%);
+    color: var(--ink);
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 18rem 1fr;
+    height: 100vh;
+}
+
+.sidebar {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    border-right: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(247, 240, 226, 0.96));
+    padding: 1rem;
+    gap: 1rem;
+    min-height: 0;
+    backdrop-filter: blur(8px);
+}
+
+.sidebar-top {
+    min-height: 0;
+}
+
+.title {
+    margin: 0 0 0.25rem;
+    font-size: 1.35rem;
+    line-height: 1.1;
+}
+
+.subtitle {
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.controls {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+label {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+input,
+select,
+button {
+    font: inherit;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+.nav-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+button {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.list {
+    min-height: 0;
+    overflow: auto;
+    padding-right: 0.35rem;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.list button {
+    text-align: left;
+    border-radius: 0.65rem;
+    padding: 0.55rem 0.7rem;
+}
+
+.list button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff8ef;
+}
+
+.viewer-shell {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-width: 0;
+}
+
+.viewer-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 252, 245, 0.92);
+}
+
+.viewer-meta {
+    min-width: 0;
+}
+
+.viewer-name {
+    font-size: 1rem;
+}
+
+.viewer-path {
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.open-link {
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.open-link:hover {
+    text-decoration: underline;
+}
+
+iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: white;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+
+    .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        max-height: 45vh;
+    }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="sidebar-top">
+            <h1 class="title">StitchWorld Lace Chart Browser</h1>
+            <p class="subtitle">Browse the generated lace charts.</p>
+
+            <div class="controls">
+                <label>
+                    Jump to pattern
+                    <select id="pattern-select"></select>
+                </label>
+
+                <label>
+                    Filter patterns
+                    <input id="pattern-filter" type="search" placeholder="Type a number">
+                </label>
+
+                <div class="nav-buttons">
+                    <button id="prev-button" type="button">Previous</button>
+                    <button id="next-button" type="button">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="list" id="pattern-list"></div>
+    </aside>
+
+    <main class="viewer-shell">
+        <div class="viewer-bar">
+            <div class="viewer-meta">
+                <div class="viewer-name" id="viewer-name"></div>
+                <div class="viewer-path" id="viewer-path"></div>
+            </div>
+            <a class="open-link" id="open-link" href="StitchWorld/103_chart.html" target="_blank" rel="noopener">Open directly</a>
+        </div>
+        <iframe id="chart-frame" name="chart-frame" src="StitchWorld/103_chart.html" title="Chart preview"></iframe>
+    </main>
+</div>
+
+<script>
+const patterns = Array.from({ length: 222 - 103 + 1 }, (_, index) => {
+    const number = 103 + index;
+    return {
+        number,
+        label: String(number),
+        file: `StitchWorld/${number}_chart.html`,
+    };
+});
+
+const frame = document.getElementById('chart-frame');
+const viewerName = document.getElementById('viewer-name');
+const viewerPath = document.getElementById('viewer-path');
+const openLink = document.getElementById('open-link');
+const patternSelect = document.getElementById('pattern-select');
+const patternFilter = document.getElementById('pattern-filter');
+const patternList = document.getElementById('pattern-list');
+const prevButton = document.getElementById('prev-button');
+const nextButton = document.getElementById('next-button');
+
+let filteredPatterns = patterns.slice();
+let currentPattern = null;
+
+function updateViewer(pattern) {
+    currentPattern = pattern;
+    frame.src = pattern.file;
+    viewerName.textContent = `Pattern ${pattern.label}`;
+    viewerPath.textContent = pattern.file;
+    openLink.href = pattern.file;
+    openLink.textContent = `Open ${pattern.file}`;
+    patternSelect.value = pattern.label;
+    window.location.hash = pattern.label;
+
+    let activeButton = null;
+    Array.from(patternList.querySelectorAll('button')).forEach((button) => {
+        const isActive = button.dataset.pattern === pattern.label;
+        button.classList.toggle('active', isActive);
+        if (isActive) {
+            activeButton = button;
+        }
+    });
+
+    if (activeButton) {
+        activeButton.scrollIntoView({ block: 'nearest' });
+    }
+
+    const index = filteredPatterns.findIndex((entry) => entry.label === pattern.label);
+    prevButton.disabled = index <= 0;
+    nextButton.disabled = index === -1 || index >= filteredPatterns.length - 1;
+}
+
+function renderList() {
+    patternList.textContent = '';
+
+    filteredPatterns.forEach((pattern) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `Pattern ${pattern.label}`;
+        button.dataset.pattern = pattern.label;
+        button.addEventListener('click', () => updateViewer(pattern));
+        patternList.appendChild(button);
+    });
+
+    if (!filteredPatterns.some((pattern) => currentPattern && pattern.label === currentPattern.label)) {
+        updateViewer(filteredPatterns[0] || patterns[0]);
+    } else {
+        updateViewer(currentPattern);
+    }
+}
+
+function applyFilter() {
+    const query = patternFilter.value.trim();
+    filteredPatterns = patterns.filter((pattern) => pattern.label.includes(query));
+    renderList();
+}
+
+function stepPattern(direction) {
+    const index = filteredPatterns.findIndex((entry) => currentPattern && entry.label === currentPattern.label);
+    if (index === -1) {
+        return;
+    }
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= filteredPatterns.length) {
+        return;
+    }
+    updateViewer(filteredPatterns[nextIndex]);
+}
+
+patterns.forEach((pattern) => {
+    const option = document.createElement('option');
+    option.value = pattern.label;
+    option.textContent = `Pattern ${pattern.label}`;
+    patternSelect.appendChild(option);
+});
+
+patternSelect.addEventListener('change', () => {
+    const selected = patterns.find((pattern) => pattern.label === patternSelect.value);
+    if (selected) {
+        updateViewer(selected);
+    }
+});
+
+patternFilter.addEventListener('input', applyFilter);
+prevButton.addEventListener('click', () => stepPattern(-1));
+nextButton.addEventListener('click', () => stepPattern(1));
+
+document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+    const isEditable = target && (target.isContentEditable || tagName === 'input' || tagName === 'select' || tagName === 'textarea');
+    if (isEditable) {
+        return;
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        stepPattern(-1);
+    } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        stepPattern(1);
+    }
+});
+
+const hashPattern = window.location.hash.replace('#', '');
+const initialPattern = patterns.find((pattern) => pattern.label === hashPattern) || patterns[0];
+currentPattern = initialPattern;
+renderList();
+</script>
+</body>
+</html>
