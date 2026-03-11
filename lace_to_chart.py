@@ -124,12 +124,10 @@ def build_rows(path, ayab_symbols=None):
             if pixels[x, y] == 0:
                 if right_row:
                     cells[x] = hole_symbol
-                    if x + 1 < width:
-                        cells[x + 1] = '/'
+                    cells[(x + 1) % width] = '/'
                 else:
                     cells[x] = hole_symbol
-                    if x - 1 >= 0:
-                        cells[x - 1] = '\\'
+                    cells[(x - 1) % width] = '\\'
 
         rows.append((knit_row, 'R' if right_row else 'L', cells))
 
