@@ -168,8 +168,6 @@ button:hover {
     overflow: auto;
     padding: 1rem;
     display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .chart-pane {
@@ -180,6 +178,12 @@ button:hover {
 #tiled-output {
     width: 100%;
     height: 100%;
+}
+
+#image-output,
+#chart-output {
+    margin: auto;
+    display: flex;
 }
 
 .chart-grid {
@@ -203,70 +207,6 @@ button:hover {
     display: block;
 }
 
-.image-pane {
-    border-right: 1px solid var(--line);
-    display: flex;
-    background: var(--panel);
-    overflow: auto;
-}
-
-.image-wrapper {
-    position: relative;
-    margin: auto;
-    display: inline-flex;
-    height: calc(100% - 2rem);
-    border: 1px solid var(--line);
-    background: white;
-    padding-left: var(--pixel-size, 0px);
-}
-
-.image-wrapper img {
-    height: 100%;
-    width: auto;
-    max-width: none;
-    display: block;
-    image-rendering: pixelated;
-}
-
-.grid-overlay {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: var(--pixel-size, 0px);
-    pointer-events: none;
-    background-position: bottom left;
-    background-image: 
-        linear-gradient(to right, rgba(0,0,0,0.8) 2px, transparent 2px),
-        linear-gradient(to top, rgba(0,0,0,0.8) 2px, transparent 2px),
-        linear-gradient(to right, rgba(0,0,0,0.3) 1px, transparent 1px),
-        linear-gradient(to top, rgba(0,0,0,0.3) 1px, transparent 1px);
-}
-
-.row-markers {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: var(--pixel-size, 0px);
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden;
-}
-
-.row-marker {
-    height: var(--pixel-size, 0px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(var(--pixel-size, 0px) * 0.8);
-    font-family: sans-serif;
-    color: black;
-    line-height: 1;
-}
-
 .marker-n {
     width: 65%;
     height: 65%;
@@ -277,6 +217,13 @@ button:hover {
     width: 65%;
     height: 65%;
     background-color: var(--ink);
+}
+
+.image-pane {
+    display: flex;
+    background: var(--panel);
+    overflow: auto;
+    padding: 1rem;
 }
 
 iframe {
@@ -332,11 +279,7 @@ iframe {
         <div class="viewer-content">
             <div class="left-column">
                 <div class="viewer-pane image-pane">
-                    <div class="image-wrapper" id="image-wrapper">
-                        <div class="row-markers" id="row-markers"></div>
-                        <img id="pattern-image" src="" alt="Original pattern">
-                        <div class="grid-overlay" id="grid-overlay"></div>
-                    </div>
+                    <div id="image-output"></div>
                 </div>
                 <div class="viewer-pane chart-output-pane">
                     <div id="chart-output"></div>
@@ -350,10 +293,8 @@ iframe {
 </div>
 
 <script>
-async function getAyabSymbols(url) {
+function getAyabSymbols(buffer) {
     try {
-        const res = await fetch(url);
-        const buffer = await res.arrayBuffer();
         const dataView = new DataView(buffer);
         
         // Check signature
@@ -411,10 +352,8 @@ const patterns = Array.from({ length: 222 - 103 + 1 }, (_, index) => {
     };
 });
 
-const image = document.getElementById('pattern-image');
-const imageWrapper = document.getElementById('image-wrapper');
-const gridOverlay = document.getElementById('grid-overlay');
-const rowMarkers = document.getElementById('row-markers');
+const image = new Image();
+const imageOutput = document.getElementById('image-output');
 const chartOutput = document.getElementById('chart-output');
 
 /**
@@ -587,20 +526,30 @@ const renderChart = (chartData, container) => {
     const cols = mergedBlocks[0].cells.length;
     const rows = mergedBlocks.length;
 
-    const MARGIN = 32; // px, ~2rem
+    const MARGIN = 16; // px, ~2rem
     const pane = container.parentElement;
     const availW = pane.clientWidth - MARGIN * 2;
     const availH = pane.clientHeight - MARGIN * 2;
-    const cellSize = Math.max(4, Math.min(
-        Math.floor(availW / (cols + 1)),  // +1 accounts for gap pixels
-        Math.floor(availH / (rows + 1))
+    const cellSize = Math.max(1, Math.min(
+        Math.floor((availW - cols - 1) / cols),
+        Math.floor((availH - rows - 1) / rows)
     ));
 
     const width = mergedBlocks[0].cells.length;
 
+    const lineW = Math.max(0.1, Math.min(1, cellSize / 5));
+    const borderBlack = `${lineW}px solid black`;
+    const borderCcc = `${lineW}px solid #ccc`;
+
     const grid = document.createElement('div');
     grid.className = 'chart-grid';
     grid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+    grid.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+    grid.style.gap = '0';
+    grid.style.border = 'none';
+    grid.style.borderTop = (rows % 5 === 0) ? borderBlack : borderCcc;
+    grid.style.borderLeft = borderBlack;
+    grid.style.background = 'transparent';
 
     const GLYPH_MAP = {
         'knit':               'glyphs/U002D.svg',
@@ -616,10 +565,15 @@ const renderChart = (chartData, container) => {
     const reversed = [...mergedBlocks].reverse();
     for (let i = 0; i < reversed.length; i++) {
         const b = reversed[i];
+        const rowFromBottom = rows - 1 - i;
 
-        for (const type of b.cells) {
+        for (let x = 0; x < width; x++) {
+            const type = b.cells[x];
             const cell = document.createElement('div');
             cell.className = `chart-cell chart-cell--${type}`;
+            cell.style.borderBottom = (rowFromBottom % 5 === 0) ? borderBlack : borderCcc;
+            cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
+            
             const src = GLYPH_MAP[type];
             if (src) {
                 const img = document.createElement('img');
@@ -689,20 +643,69 @@ const renderTiledChart = (chartData, container) => {
     container.appendChild(grid);
 };
 
-const updateGridScale = () => {
-    if (!image.naturalHeight) return;
-    const scale = image.clientHeight / image.naturalHeight;
-    imageWrapper.style.setProperty('--pixel-size', `${scale}px`);
-    // Thick lines every 5 pixels, thin lines every 1 pixel
-    gridOverlay.style.backgroundSize = `${scale * 5}px ${scale * 5}px, ${scale * 5}px ${scale * 5}px, ${scale}px ${scale}px, ${scale}px ${scale}px`;
-};
+/**
+ * Render the raw pattern data into DOM elements.
+ * Input:
+ * - patternData: The output from `extractPatternData`
+ * - container: The DOM element to populate
+ */
+const renderPattern = (patternData, container) => {
+    container.innerHTML = '';
+    if (!patternData || patternData.rows.length === 0) return;
+    
+    const { width, height, rows, ayabSymbols } = patternData;
 
-const renderRowMarkers = (ayabSymbols) => {
-    if (!image.naturalHeight) return;
-    rowMarkers.innerHTML = '';
-    for (let i = image.naturalHeight - 1; i >= 0; i--) {
-        const marker = document.createElement('div');
-        marker.className = 'row-marker';
+    const MARGIN = 16; // px, ~2rem
+    const pane = container.parentElement;
+    const availW = pane.clientWidth - MARGIN * 2;
+    const availH = pane.clientHeight - MARGIN * 2;
+    
+    // Add 1 to width for the gutter
+    const gridWidth = width + 1;
+    
+    const cellSize = Math.max(1, Math.min(
+        Math.floor((availW - 1) / gridWidth),
+        Math.floor((availH - 1) / height)
+    ));
+    
+    // Scale gridline thickness for very small cell sizes to prevent the pattern from being visually overwhelmed by lines
+    const lineW = Math.max(0.1, Math.min(1, cellSize / 5));
+    const borderBlack = `${lineW}px solid black`;
+    const borderCcc = `${lineW}px solid #ccc`;
+
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+
+    const gutterGrid = document.createElement('div');
+    gutterGrid.style.display = 'grid';
+    gutterGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
+    gutterGrid.style.gridTemplateColumns = `${cellSize}px`;
+    gutterGrid.style.gap = '0';
+    gutterGrid.style.border = 'none';
+    gutterGrid.style.background = 'white';
+
+    const grid = document.createElement('div');
+    grid.className = 'chart-grid';
+    grid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+    grid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
+    grid.style.gap = '0';
+    grid.style.border = 'none';
+    grid.style.borderTop = (height % 5 === 0) ? borderBlack : borderCcc;
+    grid.style.borderLeft = 'none'; // The gutter's right border takes care of this
+    grid.style.background = 'transparent';
+
+    for (let y = 0; y < height; y++) {
+        const rowPixels = rows[y];
+        const i = height - 1 - y;
+        
+        const gutterCell = document.createElement('div');
+        gutterCell.className = 'chart-cell';
+        gutterCell.style.fontSize = `${Math.max(6, cellSize * 0.8)}px`;
+        gutterCell.style.fontFamily = 'sans-serif';
+        gutterCell.style.color = 'black';
+        gutterCell.style.borderBottom = 'none';
+        gutterCell.style.borderRight = borderBlack;
+        
         let symbol = '';
         if (ayabSymbols && ayabSymbols.length > i) {
             symbol = ayabSymbols[i];
@@ -711,39 +714,60 @@ const renderRowMarkers = (ayabSymbols) => {
         if (symbol === 'N') {
             const square = document.createElement('div');
             square.className = 'marker-n';
-            marker.appendChild(square);
+            gutterCell.appendChild(square);
         } else if (symbol === 'F') {
             const square = document.createElement('div');
             square.className = 'marker-f';
-            marker.appendChild(square);
-        } else if (symbol !== '0') {
-            marker.textContent = symbol;
+            gutterCell.appendChild(square);
+        } else if (symbol && symbol !== '0') {
+            gutterCell.textContent = symbol;
         }
-        
-        rowMarkers.appendChild(marker);
+        gutterGrid.appendChild(gutterCell);
+
+        for (let x = 0; x < width; x++) {
+            const isBlack = rowPixels[x];
+            const cell = document.createElement('div');
+            cell.className = 'chart-cell';
+            cell.style.borderBottom = (i % 5 === 0) ? borderBlack : borderCcc;
+            cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
+            if (isBlack) {
+                cell.style.backgroundColor = 'var(--ink)';
+            }
+            grid.appendChild(cell);
+        }
     }
+    
+    wrapper.appendChild(gutterGrid);
+    wrapper.appendChild(grid);
+    container.appendChild(wrapper);
 };
 
 image.addEventListener('load', () => {
-    // scale limit so one pixel is at most ~24px (roughly size of a couple letters)
-    const MAX_SCALE = 24;
-    imageWrapper.style.maxHeight = `${image.naturalHeight * MAX_SCALE}px`;
-    updateGridScale();
     const symbols = currentPattern && currentPattern.ayabSymbols ? currentPattern.ayabSymbols : null;
-    renderRowMarkers(symbols);
-    const chartData = generateChartData(extractPatternData(image, symbols));
+    const patternData = extractPatternData(image, symbols);
+    currentPatternData = patternData;
+    renderPattern(patternData, imageOutput);
+
+    const chartData = generateChartData(patternData);
     currentChartData = chartData;
     renderChart(chartData, chartOutput);
     renderTiledChart(chartData, tiledOutput);
 });
 
-const chartResizeObserver = new ResizeObserver(() => {
-    if (currentChartData) renderChart(currentChartData, chartOutput);
-});
-chartResizeObserver.observe(chartOutput.parentElement);
+let currentPatternData = null;
+let currentChartData = null;
 
-const scaleObserver = new ResizeObserver(() => updateGridScale());
-scaleObserver.observe(image);
+const paneResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+        if (entry.target === imageOutput.parentElement && currentPatternData) {
+            renderPattern(currentPatternData, imageOutput);
+        } else if (entry.target === chartOutput.parentElement && currentChartData) {
+            renderChart(currentChartData, chartOutput);
+        }
+    }
+});
+paneResizeObserver.observe(imageOutput.parentElement);
+paneResizeObserver.observe(chartOutput.parentElement);
 
 const tiledOutput = document.getElementById('tiled-output');
 const patternSelect = document.getElementById('pattern-select');
@@ -752,8 +776,6 @@ const patternList = document.getElementById('pattern-list');
 const prevButton = document.getElementById('prev-button');
 const nextButton = document.getElementById('next-button');
 
-let currentChartData = null;
-
 const tiledObserver = new ResizeObserver(() => {
     if (currentChartData) renderTiledChart(currentChartData, tiledOutput);
 });
@@ -761,26 +783,29 @@ tiledObserver.observe(tiledOutput.parentElement);
 
 let filteredPatterns = patterns.slice();
 let currentPattern = null;
+let currentImageUrl = null;
 
 function updateViewer(pattern) {
     currentPattern = pattern;
     if (pattern.ayabSymbols === undefined) pattern.ayabSymbols = null;
+    imageOutput.innerHTML = '';
     chartOutput.innerHTML = '';
     tiledOutput.innerHTML = '';
-    getAyabSymbols(pattern.imageFile).then(symbols => {
-        if (currentPattern === pattern) {
-            pattern.ayabSymbols = symbols;
-            renderRowMarkers(symbols);
-            if (image.complete && image.naturalWidth) {
-                const chartData = generateChartData(extractPatternData(image, symbols));
-                currentChartData = chartData;
-                renderChart(chartData, chartOutput);
-                renderTiledChart(chartData, tiledOutput);
+    
+    fetch(pattern.imageFile)
+        .then(res => res.arrayBuffer())
+        .then(buffer => {
+            if (currentPattern === pattern) {
+                pattern.ayabSymbols = getAyabSymbols(buffer);
+                const blob = new Blob([buffer], { type: 'image/png' });
+                if (currentImageUrl) {
+                    URL.revokeObjectURL(currentImageUrl);
+                }
+                currentImageUrl = URL.createObjectURL(blob);
+                image.src = currentImageUrl;
             }
-        }
-    });
+        });
 
-    image.src = pattern.imageFile;
     patternSelect.value = pattern.label;
     window.location.hash = pattern.label;
 
