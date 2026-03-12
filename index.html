@@ -136,49 +136,15 @@ button:hover {
 
 .viewer-shell {
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: 1fr;
     min-width: 0;
-}
-
-.viewer-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.9rem 1.2rem;
-    border-bottom: 1px solid var(--line);
-    background: rgba(255, 252, 245, 0.92);
-}
-
-.viewer-meta {
-    min-width: 0;
-}
-
-.viewer-name {
-    font-size: 1rem;
-}
-
-.viewer-path {
-    color: var(--muted);
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.open-link {
-    color: var(--accent);
-    text-decoration: none;
-    white-space: nowrap;
-}
-
-.open-link:hover {
-    text-decoration: underline;
+    min-height: 0;
 }
 
 .viewer-content {
     display: grid;
     grid-template-columns: 30% 1fr;
+    grid-template-rows: 1fr;
     min-height: 0;
 }
 
@@ -188,27 +154,53 @@ button:hover {
     overflow: hidden;
 }
 
-.right-column {
+.left-column {
     display: grid;
     grid-template-rows: 1fr 1fr;
     min-height: 0;
     overflow: hidden;
-}
-
-@font-face {
-    font-family: 'RoosChartEmbedded';
-    src: url('StitchWorld/ROOSMLN1.woff2') format('woff2');
+    border-right: 1px solid var(--line);
 }
 
 .chart-output-pane {
-    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
     background: var(--panel);
     overflow: auto;
     padding: 1rem;
-    font-family: "RoosChartEmbedded", monospace;
-    white-space: pre;
-    font-size: 1.25rem;
-    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-pane {
+    overflow: hidden;
+    background: var(--panel);
+}
+
+#tiled-output {
+    width: 100%;
+    height: 100%;
+}
+
+.chart-grid {
+    display: inline-grid;
+    gap: 1px;
+    background: #ccc;
+    border: 1px solid #ccc;
+}
+
+.chart-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    box-sizing: border-box;
+}
+
+.chart-cell img {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .image-pane {
@@ -337,28 +329,21 @@ iframe {
     </aside>
 
     <main class="viewer-shell">
-        <div class="viewer-bar">
-            <div class="viewer-meta">
-                <div class="viewer-name" id="viewer-name"></div>
-                <div class="viewer-path" id="viewer-path"></div>
-            </div>
-            <a class="open-link" id="open-link" href="#" target="_blank" rel="noopener">Open directly</a>
-        </div>
         <div class="viewer-content">
-            <div class="viewer-pane image-pane">
-                <div class="image-wrapper" id="image-wrapper">
-                    <div class="row-markers" id="row-markers"></div>
-                    <img id="pattern-image" src="" alt="Original pattern">
-                    <div class="grid-overlay" id="grid-overlay"></div>
+            <div class="left-column">
+                <div class="viewer-pane image-pane">
+                    <div class="image-wrapper" id="image-wrapper">
+                        <div class="row-markers" id="row-markers"></div>
+                        <img id="pattern-image" src="" alt="Original pattern">
+                        <div class="grid-overlay" id="grid-overlay"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="right-column">
                 <div class="viewer-pane chart-output-pane">
                     <div id="chart-output"></div>
                 </div>
-                <div class="viewer-pane chart-pane">
-                    <iframe id="chart-frame" name="chart-frame" src="" title="Chart preview"></iframe>
-                </div>
+            </div>
+            <div class="viewer-pane chart-pane">
+                <div id="tiled-output"></div>
             </div>
         </div>
     </main>
@@ -589,47 +574,119 @@ const generateChartData = (patternData) => {
 };
 
 /**
- * Render the abstract chart blocks into a multiline string for textual viewing.
+ * Render the abstract chart blocks into DOM elements.
  * Input:
  * - chartData: The output from `generateChartData`
- * Output:
- * A compiled multiline string `O // O O .\n\\ O . O .\n...`
+ * - container: The DOM element to populate
  */
-const renderChartToAscii = (chartData) => {
-    if (!chartData) return '';
-    const { mergedBlocks, ayabSymbols, ayabBlocks } = chartData;
-    let lines = [];
+const renderChart = (chartData, container) => {
+    container.innerHTML = '';
+    if (!chartData || chartData.mergedBlocks.length === 0) return;
+    const { mergedBlocks } = chartData;
 
-    const ASCII_MAP = {
-        'knit': '"',
-        'hole': '#',
-        'fine-hole': '#',
-        'transfer-right': '(',
-        'transfer-right-end': ')',
-        'transfer-left': "'",
-        'transfer-left-end': '*',
-        'crossover': '/'
+    const cols = mergedBlocks[0].cells.length;
+    const rows = mergedBlocks.length;
+
+    const MARGIN = 32; // px, ~2rem
+    const pane = container.parentElement;
+    const availW = pane.clientWidth - MARGIN * 2;
+    const availH = pane.clientHeight - MARGIN * 2;
+    const cellSize = Math.max(4, Math.min(
+        Math.floor(availW / (cols + 1)),  // +1 accounts for gap pixels
+        Math.floor(availH / (rows + 1))
+    ));
+
+    const width = mergedBlocks[0].cells.length;
+
+    const grid = document.createElement('div');
+    grid.className = 'chart-grid';
+    grid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+
+    const GLYPH_MAP = {
+        'knit':               'glyphs/U002D.svg',
+        'hole':               'glyphs/U006F.svg',
+        'fine-hole':          'glyphs/U006F.svg',
+        'transfer-right':     'glyphs/U002F.svg',
+        'transfer-right-end': 'glyphs/UF055.svg',
+        'transfer-left':      'glyphs/U005C.svg',
+        'transfer-left-end':  'glyphs/UF056.svg',
+        'crossover':          'glyphs/UF06A.svg',
     };
 
     const reversed = [...mergedBlocks].reverse();
     for (let i = 0; i < reversed.length; i++) {
         const b = reversed[i];
-        lines.push(b.cells.map(c => ASCII_MAP[c] || c).join(''));
-        
-        if (ayabBlocks && i + 1 < reversed.length) {
-            const curStart = b.startRow;
-            const curEnd = b.rowNum;
-            const nxtStart = reversed[i+1].startRow;
-            const nxtEnd = reversed[i+1].rowNum;
-            if (curStart && curStart === curEnd && nxtStart && nxtStart === nxtEnd) {
-                 if (ayabBlocks[curStart] !== ayabBlocks[nxtStart]) {
-                     lines.push('');
-                 }
+
+        for (const type of b.cells) {
+            const cell = document.createElement('div');
+            cell.className = `chart-cell chart-cell--${type}`;
+            const src = GLYPH_MAP[type];
+            if (src) {
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = type;
+                cell.appendChild(img);
             }
+            grid.appendChild(cell);
         }
     }
-    
-    return lines.join('\n');
+    container.appendChild(grid);
+};
+
+/**
+ * Render the chart tiled to fill the given number of columns and rows.
+ * Input:
+ * - chartData: The output from `generateChartData`
+ * - container: The DOM element to populate
+ */
+const renderTiledChart = (chartData, container) => {
+    container.innerHTML = '';
+    if (!chartData || chartData.mergedBlocks.length === 0) return;
+    const { mergedBlocks } = chartData;
+
+    const patternRows = [...mergedBlocks].reverse();
+    const numRows = patternRows.length;
+    const width = patternRows[0].cells.length;
+
+    const CELL_SIZE_PX = 14; // 0.875rem at 16px base
+    const pane = container.parentElement;
+    const tiledCols = Math.max(1, Math.floor(pane.clientWidth / CELL_SIZE_PX));
+    const tiledRows = Math.max(1, Math.floor(pane.clientHeight / CELL_SIZE_PX));
+
+    const grid = document.createElement('div');
+    grid.className = 'chart-grid';
+    grid.style.gridTemplateColumns = `repeat(${tiledCols}, 0.875rem)`;
+    grid.style.gridTemplateRows = `repeat(${tiledRows}, 0.875rem)`;
+    grid.style.overflow = 'hidden';
+
+    const GLYPH_MAP = {
+        'knit':               'glyphs/U002D.svg',
+        'hole':               'glyphs/U006F.svg',
+        'fine-hole':          'glyphs/U006F.svg',
+        'transfer-right':     'glyphs/U002F.svg',
+        'transfer-right-end': 'glyphs/UF055.svg',
+        'transfer-left':      'glyphs/U005C.svg',
+        'transfer-left-end':  'glyphs/UF056.svg',
+        'crossover':          'glyphs/UF06A.svg',
+    };
+
+    for (let r = 0; r < tiledRows; r++) {
+        const patternRow = patternRows[r % numRows];
+        for (let c = 0; c < tiledCols; c++) {
+            const type = patternRow.cells[c % width];
+            const cell = document.createElement('div');
+            cell.className = `chart-cell chart-cell--${type}`;
+            const src = GLYPH_MAP[type];
+            if (src) {
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = type;
+                cell.appendChild(img);
+            }
+            grid.appendChild(cell);
+        }
+    }
+    container.appendChild(grid);
 };
 
 const updateGridScale = () => {
@@ -674,21 +731,33 @@ image.addEventListener('load', () => {
     updateGridScale();
     const symbols = currentPattern && currentPattern.ayabSymbols ? currentPattern.ayabSymbols : null;
     renderRowMarkers(symbols);
-    chartOutput.textContent = renderChartToAscii(generateChartData(extractPatternData(image, symbols)));
+    const chartData = generateChartData(extractPatternData(image, symbols));
+    currentChartData = chartData;
+    renderChart(chartData, chartOutput);
+    renderTiledChart(chartData, tiledOutput);
 });
+
+const chartResizeObserver = new ResizeObserver(() => {
+    if (currentChartData) renderChart(currentChartData, chartOutput);
+});
+chartResizeObserver.observe(chartOutput.parentElement);
 
 const scaleObserver = new ResizeObserver(() => updateGridScale());
 scaleObserver.observe(image);
 
-const frame = document.getElementById('chart-frame');
-const viewerName = document.getElementById('viewer-name');
-const viewerPath = document.getElementById('viewer-path');
-const openLink = document.getElementById('open-link');
+const tiledOutput = document.getElementById('tiled-output');
 const patternSelect = document.getElementById('pattern-select');
 const patternFilter = document.getElementById('pattern-filter');
 const patternList = document.getElementById('pattern-list');
 const prevButton = document.getElementById('prev-button');
 const nextButton = document.getElementById('next-button');
+
+let currentChartData = null;
+
+const tiledObserver = new ResizeObserver(() => {
+    if (currentChartData) renderTiledChart(currentChartData, tiledOutput);
+});
+tiledObserver.observe(tiledOutput.parentElement);
 
 let filteredPatterns = patterns.slice();
 let currentPattern = null;
@@ -696,23 +765,22 @@ let currentPattern = null;
 function updateViewer(pattern) {
     currentPattern = pattern;
     if (pattern.ayabSymbols === undefined) pattern.ayabSymbols = null;
-    chartOutput.textContent = '';
+    chartOutput.innerHTML = '';
+    tiledOutput.innerHTML = '';
     getAyabSymbols(pattern.imageFile).then(symbols => {
         if (currentPattern === pattern) {
             pattern.ayabSymbols = symbols;
             renderRowMarkers(symbols);
             if (image.complete && image.naturalWidth) {
-                chartOutput.textContent = renderChartToAscii(generateChartData(extractPatternData(image, symbols)));
+                const chartData = generateChartData(extractPatternData(image, symbols));
+                currentChartData = chartData;
+                renderChart(chartData, chartOutput);
+                renderTiledChart(chartData, tiledOutput);
             }
         }
     });
 
     image.src = pattern.imageFile;
-    frame.src = pattern.file;
-    viewerName.textContent = `Pattern ${pattern.label}`;
-    viewerPath.textContent = pattern.file;
-    openLink.href = pattern.file;
-    openLink.textContent = `Open ${pattern.file}`;
     patternSelect.value = pattern.label;
     window.location.hash = pattern.label;
 
