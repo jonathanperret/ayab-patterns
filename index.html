@@ -176,6 +176,94 @@ button:hover {
     text-decoration: underline;
 }
 
+.viewer-content {
+    display: grid;
+    grid-template-columns: 30% 1fr;
+    min-height: 0;
+}
+
+.viewer-pane {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.image-pane {
+    border-right: 1px solid var(--line);
+    display: flex;
+    background: var(--panel);
+    overflow: auto;
+}
+
+.image-wrapper {
+    position: relative;
+    margin: auto;
+    display: inline-flex;
+    height: calc(100% - 2rem);
+    border: 1px solid var(--line);
+    background: white;
+    padding-left: var(--pixel-size, 0px);
+}
+
+.image-wrapper img {
+    height: 100%;
+    width: auto;
+    max-width: none;
+    display: block;
+    image-rendering: pixelated;
+}
+
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--pixel-size, 0px);
+    pointer-events: none;
+    background-position: bottom left;
+    background-image: 
+        linear-gradient(to right, rgba(0,0,0,0.8) 2px, transparent 2px),
+        linear-gradient(to top, rgba(0,0,0,0.8) 2px, transparent 2px),
+        linear-gradient(to right, rgba(0,0,0,0.3) 1px, transparent 1px),
+        linear-gradient(to top, rgba(0,0,0,0.3) 1px, transparent 1px);
+}
+
+.row-markers {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--pixel-size, 0px);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.row-marker {
+    height: var(--pixel-size, 0px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--pixel-size, 0px) * 0.8);
+    font-family: sans-serif;
+    color: black;
+    line-height: 1;
+}
+
+.marker-n {
+    width: 65%;
+    height: 65%;
+    border: 1px solid var(--ink);
+}
+
+.marker-f {
+    width: 65%;
+    height: 65%;
+    background-color: var(--ink);
+}
+
 iframe {
     width: 100%;
     height: 100%;
@@ -231,21 +319,137 @@ iframe {
                 <div class="viewer-name" id="viewer-name"></div>
                 <div class="viewer-path" id="viewer-path"></div>
             </div>
-            <a class="open-link" id="open-link" href="StitchWorld/103_chart.html" target="_blank" rel="noopener">Open directly</a>
+            <a class="open-link" id="open-link" href="#" target="_blank" rel="noopener">Open directly</a>
         </div>
-        <iframe id="chart-frame" name="chart-frame" src="StitchWorld/103_chart.html" title="Chart preview"></iframe>
+        <div class="viewer-content">
+            <div class="viewer-pane image-pane">
+                <div class="image-wrapper" id="image-wrapper">
+                    <div class="row-markers" id="row-markers"></div>
+                    <img id="pattern-image" src="" alt="Original pattern">
+                    <div class="grid-overlay" id="grid-overlay"></div>
+                </div>
+            </div>
+            <div class="viewer-pane chart-pane">
+                <iframe id="chart-frame" name="chart-frame" src="" title="Chart preview"></iframe>
+            </div>
+        </div>
     </main>
 </div>
 
 <script>
+async function getAyabSymbols(url) {
+    try {
+        const res = await fetch(url);
+        const buffer = await res.arrayBuffer();
+        const dataView = new DataView(buffer);
+        
+        // Check signature
+        if (dataView.getUint32(0) !== 0x89504E47 || dataView.getUint32(4) !== 0x0D0A1A0A) {
+            return null;
+        }
+        
+        let offset = 8;
+        while (offset < buffer.byteLength) {
+            const length = dataView.getUint32(offset);
+            const type = String.fromCharCode(
+                dataView.getUint8(offset + 4),
+                dataView.getUint8(offset + 5),
+                dataView.getUint8(offset + 6),
+                dataView.getUint8(offset + 7)
+            );
+            
+            if (type === 'tEXt') {
+                let chunkOffset = offset + 8;
+                let chunkEnd = chunkOffset + length;
+                let keyword = '';
+                while (chunkOffset < chunkEnd) {
+                    const char = dataView.getUint8(chunkOffset);
+                    if (char === 0) {
+                        chunkOffset++;
+                        break;
+                    }
+                    keyword += String.fromCharCode(char);
+                    chunkOffset++;
+                }
+                if (keyword === 'Comment') {
+                    const textDecoder = new TextDecoder('utf-8');
+                    const comment = textDecoder.decode(new Uint8Array(buffer, chunkOffset, chunkEnd - chunkOffset));
+                    if (comment.startsWith('AYAB:')) {
+                        return comment.substring(5).trim();
+                    }
+                }
+            }
+            
+            offset += 8 + length + 4; // 4 length + 4 type + length + 4 crc
+        }
+    } catch (e) {
+        console.error('Failed to read PNG metadata:', e);
+    }
+    return null;
+}
+
 const patterns = Array.from({ length: 222 - 103 + 1 }, (_, index) => {
     const number = 103 + index;
     return {
         number,
         label: String(number),
         file: `StitchWorld/${number}_chart.html`,
+        imageFile: `StitchWorld/${number}.png`,
     };
 });
+
+const image = document.getElementById('pattern-image');
+const imageWrapper = document.getElementById('image-wrapper');
+const gridOverlay = document.getElementById('grid-overlay');
+const rowMarkers = document.getElementById('row-markers');
+
+let currentAyabSymbols = null;
+
+const updateGridScale = () => {
+    if (!image.naturalHeight) return;
+    const scale = image.clientHeight / image.naturalHeight;
+    imageWrapper.style.setProperty('--pixel-size', `${scale}px`);
+    // Thick lines every 5 pixels, thin lines every 1 pixel
+    gridOverlay.style.backgroundSize = `${scale * 5}px ${scale * 5}px, ${scale * 5}px ${scale * 5}px, ${scale}px ${scale}px, ${scale}px ${scale}px`;
+};
+
+const renderRowMarkers = () => {
+    if (!image.naturalHeight) return;
+    rowMarkers.innerHTML = '';
+    for (let i = image.naturalHeight - 1; i >= 0; i--) {
+        const marker = document.createElement('div');
+        marker.className = 'row-marker';
+        let symbol = '';
+        if (currentAyabSymbols && currentAyabSymbols.length > i) {
+            symbol = currentAyabSymbols[i];
+        }
+        
+        if (symbol === 'N') {
+            const square = document.createElement('div');
+            square.className = 'marker-n';
+            marker.appendChild(square);
+        } else if (symbol === 'F') {
+            const square = document.createElement('div');
+            square.className = 'marker-f';
+            marker.appendChild(square);
+        } else if (symbol !== '0') {
+            marker.textContent = symbol;
+        }
+        
+        rowMarkers.appendChild(marker);
+    }
+};
+
+image.addEventListener('load', () => {
+    // scale limit so one pixel is at most ~24px (roughly size of a couple letters)
+    const MAX_SCALE = 24;
+    imageWrapper.style.maxHeight = `${image.naturalHeight * MAX_SCALE}px`;
+    updateGridScale();
+    renderRowMarkers();
+});
+
+const scaleObserver = new ResizeObserver(() => updateGridScale());
+scaleObserver.observe(image);
 
 const frame = document.getElementById('chart-frame');
 const viewerName = document.getElementById('viewer-name');
@@ -262,6 +466,15 @@ let currentPattern = null;
 
 function updateViewer(pattern) {
     currentPattern = pattern;
+    currentAyabSymbols = null; // Clear previous symbols
+    getAyabSymbols(pattern.imageFile).then(symbols => {
+        if (currentPattern === pattern) {
+            currentAyabSymbols = symbols;
+            renderRowMarkers();
+        }
+    });
+
+    image.src = pattern.imageFile;
     frame.src = pattern.file;
     viewerName.textContent = `Pattern ${pattern.label}`;
     viewerPath.textContent = pattern.file;
