@@ -323,7 +323,6 @@ const patterns = [
         return {
             number,
             label: `StitchWorld #${number}`,
-            file: `StitchWorld/${number}_chart.html`,
             imageFile: `StitchWorld/${number}.png`,
         };
     }),
@@ -332,7 +331,6 @@ const patterns = [
         return {
             number,
             label: `StitchWorld3 #${number}`,
-            file: `StitchWorld3/${number}_chart.html`,
             imageFile: `StitchWorld3/${number}.png`,
         };
     })
@@ -787,11 +785,11 @@ function updateViewer(pattern) {
             }
         });
 
-    window.location.hash = encodeURIComponent(pattern.label);
+    window.location.hash = encodeURIComponent(pattern.imageFile);
 
     let activeButton = null;
     Array.from(patternList.querySelectorAll('button')).forEach((button) => {
-        const isActive = button.dataset.pattern === pattern.label;
+        const isActive = button.dataset.pattern === pattern.imageFile;
         button.classList.toggle('active', isActive);
         if (isActive) {
             activeButton = button;
@@ -810,12 +808,12 @@ function renderList() {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = pattern.label;
-        button.dataset.pattern = pattern.label;
+        button.dataset.pattern = pattern.imageFile;
         button.addEventListener('click', () => updateViewer(pattern));
         patternList.appendChild(button);
     });
 
-    if (!patterns.some((pattern) => currentPattern && pattern.label === currentPattern.label)) {
+    if (!patterns.some((pattern) => currentPattern && pattern.imageFile === currentPattern.imageFile)) {
         updateViewer(patterns[0]);
     } else {
         updateViewer(currentPattern);
@@ -823,7 +821,7 @@ function renderList() {
 }
 
 function stepPattern(direction) {
-    const index = patterns.findIndex((entry) => currentPattern && entry.label === currentPattern.label);
+    const index = patterns.findIndex((entry) => currentPattern && entry.imageFile === currentPattern.imageFile);
     if (index === -1) {
         return;
     }
@@ -852,7 +850,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 const hashPattern = decodeURIComponent(window.location.hash.replace('#', ''));
-const initialPattern = patterns.find((pattern) => pattern.label === hashPattern) || patterns[0];
+const initialPattern = patterns.find((pattern) => pattern.imageFile === hashPattern) || patterns[0];
 currentPattern = initialPattern;
 renderList();
 </script>
