@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StitchWorld Lace Chart Browser</title>
+<title>StitchWorld Lace Pattern Browser</title>
 <style>
 :root {
     color-scheme: light;
@@ -44,7 +44,6 @@ body {
     border-right: 1px solid var(--line);
     background: linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(247, 240, 226, 0.96));
     padding: 1rem;
-    gap: 1rem;
     min-height: 0;
     backdrop-filter: blur(8px);
 }
@@ -63,12 +62,6 @@ body {
     margin: 0 0 1rem;
     color: var(--muted);
     font-size: 0.95rem;
-}
-
-.controls {
-    display: grid;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
 }
 
 label {
@@ -251,27 +244,9 @@ iframe {
 <div class="layout">
     <aside class="sidebar">
         <div class="sidebar-top">
-            <h1 class="title">StitchWorld Lace Chart Browser</h1>
-            <p class="subtitle">Browse the generated lace charts.</p>
-
-            <div class="controls">
-                <label>
-                    Jump to pattern
-                    <select id="pattern-select"></select>
-                </label>
-
-                <label>
-                    Filter patterns
-                    <input id="pattern-filter" type="search" placeholder="Type a number">
-                </label>
-
-                <div class="nav-buttons">
-                    <button id="prev-button" type="button">Previous</button>
-                    <button id="next-button" type="button">Next</button>
-                </div>
-            </div>
+            <h1 class="title">StitchWorld Lace Pattern Browser</h1>
+            <p class="subtitle">View lace patterns as charts.</p>
         </div>
-
         <div class="list" id="pattern-list"></div>
     </aside>
 
@@ -770,18 +745,13 @@ paneResizeObserver.observe(imageOutput.parentElement);
 paneResizeObserver.observe(chartOutput.parentElement);
 
 const tiledOutput = document.getElementById('tiled-output');
-const patternSelect = document.getElementById('pattern-select');
-const patternFilter = document.getElementById('pattern-filter');
 const patternList = document.getElementById('pattern-list');
-const prevButton = document.getElementById('prev-button');
-const nextButton = document.getElementById('next-button');
 
 const tiledObserver = new ResizeObserver(() => {
     if (currentChartData) renderTiledChart(currentChartData, tiledOutput);
 });
 tiledObserver.observe(tiledOutput.parentElement);
 
-let filteredPatterns = patterns.slice();
 let currentPattern = null;
 let currentImageUrl = null;
 
@@ -806,7 +776,6 @@ function updateViewer(pattern) {
             }
         });
 
-    patternSelect.value = pattern.label;
     window.location.hash = pattern.label;
 
     let activeButton = null;
@@ -821,16 +790,12 @@ function updateViewer(pattern) {
     if (activeButton) {
         activeButton.scrollIntoView({ block: 'nearest' });
     }
-
-    const index = filteredPatterns.findIndex((entry) => entry.label === pattern.label);
-    prevButton.disabled = index <= 0;
-    nextButton.disabled = index === -1 || index >= filteredPatterns.length - 1;
 }
 
 function renderList() {
     patternList.textContent = '';
 
-    filteredPatterns.forEach((pattern) => {
+    patterns.forEach((pattern) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = `Pattern ${pattern.label}`;
@@ -839,48 +804,24 @@ function renderList() {
         patternList.appendChild(button);
     });
 
-    if (!filteredPatterns.some((pattern) => currentPattern && pattern.label === currentPattern.label)) {
-        updateViewer(filteredPatterns[0] || patterns[0]);
+    if (!patterns.some((pattern) => currentPattern && pattern.label === currentPattern.label)) {
+        updateViewer(patterns[0]);
     } else {
         updateViewer(currentPattern);
     }
 }
 
-function applyFilter() {
-    const query = patternFilter.value.trim();
-    filteredPatterns = patterns.filter((pattern) => pattern.label.includes(query));
-    renderList();
-}
-
 function stepPattern(direction) {
-    const index = filteredPatterns.findIndex((entry) => currentPattern && entry.label === currentPattern.label);
+    const index = patterns.findIndex((entry) => currentPattern && entry.label === currentPattern.label);
     if (index === -1) {
         return;
     }
     const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= filteredPatterns.length) {
+    if (nextIndex < 0 || nextIndex >= patterns.length) {
         return;
     }
-    updateViewer(filteredPatterns[nextIndex]);
+    updateViewer(patterns[nextIndex]);
 }
-
-patterns.forEach((pattern) => {
-    const option = document.createElement('option');
-    option.value = pattern.label;
-    option.textContent = `Pattern ${pattern.label}`;
-    patternSelect.appendChild(option);
-});
-
-patternSelect.addEventListener('change', () => {
-    const selected = patterns.find((pattern) => pattern.label === patternSelect.value);
-    if (selected) {
-        updateViewer(selected);
-    }
-});
-
-patternFilter.addEventListener('input', applyFilter);
-prevButton.addEventListener('click', () => stepPattern(-1));
-nextButton.addEventListener('click', () => stepPattern(1));
 
 document.addEventListener('keydown', (event) => {
     const target = event.target;
