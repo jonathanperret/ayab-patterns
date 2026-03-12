@@ -188,6 +188,29 @@ button:hover {
     overflow: hidden;
 }
 
+.right-column {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    min-height: 0;
+    overflow: hidden;
+}
+
+@font-face {
+    font-family: 'RoosChartEmbedded';
+    src: url('StitchWorld/ROOSMLN1.woff2') format('woff2');
+}
+
+.chart-output-pane {
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    overflow: auto;
+    padding: 1rem;
+    font-family: "RoosChartEmbedded", monospace;
+    white-space: pre;
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
 .image-pane {
     border-right: 1px solid var(--line);
     display: flex;
@@ -329,8 +352,13 @@ iframe {
                     <div class="grid-overlay" id="grid-overlay"></div>
                 </div>
             </div>
-            <div class="viewer-pane chart-pane">
-                <iframe id="chart-frame" name="chart-frame" src="" title="Chart preview"></iframe>
+            <div class="right-column">
+                <div class="viewer-pane chart-output-pane">
+                    <div id="chart-output"></div>
+                </div>
+                <div class="viewer-pane chart-pane">
+                    <iframe id="chart-frame" name="chart-frame" src="" title="Chart preview"></iframe>
+                </div>
             </div>
         </div>
     </main>
@@ -402,8 +430,207 @@ const image = document.getElementById('pattern-image');
 const imageWrapper = document.getElementById('image-wrapper');
 const gridOverlay = document.getElementById('grid-overlay');
 const rowMarkers = document.getElementById('row-markers');
+const chartOutput = document.getElementById('chart-output');
 
-let currentAyabSymbols = null;
+/**
+ * Reads image pixels into a boolean 2D array and packages the symbols.
+ * Input:
+ * - sourceImage: An HTMLImageElement containing the PNG pattern
+ * - ayabSymbols: A string of metadata characters like "111N111..."
+ * Output:
+ * {
+ *   width: number,
+ *   height: number,
+ *   rows: boolean[][] (true if pixel is black),
+ *   ayabSymbols: string | null
+ * }
+ */
+const extractPatternData = (sourceImage, ayabSymbols) => {
+    if (!sourceImage.naturalWidth || !sourceImage.naturalHeight) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sourceImage.naturalWidth;
+    canvas.height = sourceImage.naturalHeight;
+    const ctx = canvas.getContext('2d', {willReadFrequently: true});
+    ctx.drawImage(sourceImage, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const rows = [];
+    
+    for (let y = 0; y < height; y++) {
+        const row = [];
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            row.push(imgData[i] < 128 && imgData[i + 3] > 128);
+        }
+        rows.push(row);
+    }
+
+    return { width, height, rows, ayabSymbols };
+};
+
+/**
+ * Transforms the raw boolean mask into the structural AYAB format.
+ * Input:
+ * - patternData: The output from `extractPatternData`
+ * Output:
+ * {
+ *   mergedBlocks: { label: string, cells: string[], rowNum: number | null, startRow: number | null }[],
+ *   ayabSymbols: string | null,
+ *   ayabBlocks: { [row: number]: number } | null
+ * }
+ */
+const generateChartData = (patternData) => {
+    if (!patternData) return null;
+    
+    const { width, height, rows, ayabSymbols } = patternData;
+
+    const chartRows = [];
+    for (let knitRow = 1; knitRow <= height; knitRow++) {
+        const y = height - knitRow;
+        const rightRow = (knitRow % 2 === 0);
+        let holeAction = 'hole';
+        if (ayabSymbols && ayabSymbols.length >= knitRow) {
+            if (ayabSymbols[knitRow - 1] === 'F') holeAction = 'fine-hole';
+        }
+        
+        let cells = Array(width).fill('knit');
+        const rowPixels = rows[y];
+        for (let x = 0; x < width; x++) {
+            const isBlack = rowPixels[x];
+            if (isBlack) {
+                if (rightRow) {
+                    cells[x] = holeAction;
+                    cells[(x + 1) % width] = 'transfer-right';
+                } else {
+                    cells[x] = holeAction;
+                    cells[(x - 1 + width) % width] = 'transfer-left';
+                }
+            }
+        }
+        chartRows.push({ rowNum: knitRow, cells });
+    }
+
+    let ayabBlocks = null;
+    if (ayabSymbols && ayabSymbols.length >= height) {
+        ayabBlocks = {};
+        let blockNum = 1;
+        for (let r = 1; r <= height; r++) {
+            const sym = ayabSymbols[r - 1];
+            ayabBlocks[r] = blockNum;
+            if (sym >= '1' && sym <= '9') blockNum++;
+        }
+    }
+
+    let mergedBlocks = [];
+    if (!ayabBlocks) {
+        mergedBlocks = chartRows.map(r => ({ label: String(r.rowNum), cells: r.cells, rowNum: r.rowNum, startRow: r.rowNum }));
+    } else {
+        const rowsByBlock = {};
+        const blockOrder = [];
+        for (const row of chartRows) {
+            const b = ayabBlocks[row.rowNum];
+            if (!rowsByBlock[b]) {
+                rowsByBlock[b] = [];
+                blockOrder.push(b);
+            }
+            rowsByBlock[b].push(row);
+        }
+
+        for (const b of blockOrder) {
+            const blockRows = rowsByBlock[b];
+            let mergedCells = [...blockRows[0].cells];
+            let startRow = blockRows[0].rowNum;
+            const endRow = blockRows[blockRows.length - 1].rowNum;
+
+            for (let i = 1; i < blockRows.length; i++) {
+                const topCells = blockRows[i].cells;
+                for (let x = 0; x < width; x++) {
+                    const bottom = mergedCells[x];
+                    const top = topCells[x];
+                    if (bottom === 'knit' && top === 'knit') mergedCells[x] = 'knit';
+                    else if (bottom === 'knit') mergedCells[x] = top;
+                    else if (top === 'knit') mergedCells[x] = bottom;
+                    else if ((bottom === 'transfer-right' && top === 'transfer-left') || (bottom === 'transfer-left' && top === 'transfer-right')) mergedCells[x] = 'crossover';
+                    else if ((top === 'transfer-right' || top === 'transfer-left') && (bottom === 'hole' || bottom === 'fine-hole')) mergedCells[x] = top;
+                    else mergedCells[x] = top;
+                }
+            }
+            const label = startRow === endRow ? String(startRow) : `${startRow}-${endRow}`;
+            mergedBlocks.push({ label, cells: mergedCells, rowNum: endRow, startRow });
+
+            const sym = ayabSymbols[endRow - 1];
+            if (sym >= '3' && sym <= '9') {
+                const extra = parseInt(sym, 10) - 2;
+                for (let i = 0; i < extra; i++) {
+                    mergedBlocks.push({ label: '', cells: Array(width).fill('knit'), startRow: null, rowNum: null });
+                }
+            }
+        }
+    }
+
+    // Pass to mark the ends of consecutive transfer sequences
+    for (const block of mergedBlocks) {
+        if (!block.cells) continue;
+        const original = [...block.cells];
+        for (let x = 0; x < width; x++) {
+            if (original[x] === 'transfer-right' && original[(x + 1) % width] !== 'transfer-right') {
+                block.cells[x] = 'transfer-right-end';
+            }
+            if (original[x] === 'transfer-left' && original[(x - 1 + width) % width] !== 'transfer-left') {
+                block.cells[x] = 'transfer-left-end';
+            }
+        }
+    }
+
+    return { mergedBlocks, ayabSymbols, ayabBlocks };
+};
+
+/**
+ * Render the abstract chart blocks into a multiline string for textual viewing.
+ * Input:
+ * - chartData: The output from `generateChartData`
+ * Output:
+ * A compiled multiline string `O // O O .\n\\ O . O .\n...`
+ */
+const renderChartToAscii = (chartData) => {
+    if (!chartData) return '';
+    const { mergedBlocks, ayabSymbols, ayabBlocks } = chartData;
+    let lines = [];
+
+    const ASCII_MAP = {
+        'knit': '"',
+        'hole': '#',
+        'fine-hole': '#',
+        'transfer-right': '(',
+        'transfer-right-end': ')',
+        'transfer-left': "'",
+        'transfer-left-end': '*',
+        'crossover': '/'
+    };
+
+    const reversed = [...mergedBlocks].reverse();
+    for (let i = 0; i < reversed.length; i++) {
+        const b = reversed[i];
+        lines.push(b.cells.map(c => ASCII_MAP[c] || c).join(''));
+        
+        if (ayabBlocks && i + 1 < reversed.length) {
+            const curStart = b.startRow;
+            const curEnd = b.rowNum;
+            const nxtStart = reversed[i+1].startRow;
+            const nxtEnd = reversed[i+1].rowNum;
+            if (curStart && curStart === curEnd && nxtStart && nxtStart === nxtEnd) {
+                 if (ayabBlocks[curStart] !== ayabBlocks[nxtStart]) {
+                     lines.push('');
+                 }
+            }
+        }
+    }
+    
+    return lines.join('\n');
+};
 
 const updateGridScale = () => {
     if (!image.naturalHeight) return;
@@ -413,15 +640,15 @@ const updateGridScale = () => {
     gridOverlay.style.backgroundSize = `${scale * 5}px ${scale * 5}px, ${scale * 5}px ${scale * 5}px, ${scale}px ${scale}px, ${scale}px ${scale}px`;
 };
 
-const renderRowMarkers = () => {
+const renderRowMarkers = (ayabSymbols) => {
     if (!image.naturalHeight) return;
     rowMarkers.innerHTML = '';
     for (let i = image.naturalHeight - 1; i >= 0; i--) {
         const marker = document.createElement('div');
         marker.className = 'row-marker';
         let symbol = '';
-        if (currentAyabSymbols && currentAyabSymbols.length > i) {
-            symbol = currentAyabSymbols[i];
+        if (ayabSymbols && ayabSymbols.length > i) {
+            symbol = ayabSymbols[i];
         }
         
         if (symbol === 'N') {
@@ -445,7 +672,9 @@ image.addEventListener('load', () => {
     const MAX_SCALE = 24;
     imageWrapper.style.maxHeight = `${image.naturalHeight * MAX_SCALE}px`;
     updateGridScale();
-    renderRowMarkers();
+    const symbols = currentPattern && currentPattern.ayabSymbols ? currentPattern.ayabSymbols : null;
+    renderRowMarkers(symbols);
+    chartOutput.textContent = renderChartToAscii(generateChartData(extractPatternData(image, symbols)));
 });
 
 const scaleObserver = new ResizeObserver(() => updateGridScale());
@@ -466,11 +695,15 @@ let currentPattern = null;
 
 function updateViewer(pattern) {
     currentPattern = pattern;
-    currentAyabSymbols = null; // Clear previous symbols
+    if (pattern.ayabSymbols === undefined) pattern.ayabSymbols = null;
+    chartOutput.textContent = '';
     getAyabSymbols(pattern.imageFile).then(symbols => {
         if (currentPattern === pattern) {
-            currentAyabSymbols = symbols;
-            renderRowMarkers();
+            pattern.ayabSymbols = symbols;
+            renderRowMarkers(symbols);
+            if (image.complete && image.naturalWidth) {
+                chartOutput.textContent = renderChartToAscii(generateChartData(extractPatternData(image, symbols)));
+            }
         }
     });
 
