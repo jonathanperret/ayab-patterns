@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512">
+  <!-- glyph: uniF02A  unicode:  -->
+  <path d="M256 448Q246 448 242 439L82 87Q81 85 81 81Q81 72 90 67Q92 66 96 66Q105 66 110 75L256 397L402 75Q406 66 416 66Q420 66 422 67Q431 72 431 81Q431 85 430 87L270 439Q265 448 256 448Z" fill="black"/>
+</svg>

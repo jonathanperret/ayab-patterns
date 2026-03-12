@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512">
+  <!-- glyph: dieresis  unicode: ¨ -->
+  <path d="M240 241Q246 241 250.5 245.5Q255 250 255 256Q255 262 250.5 266.5Q246 271 240 271H0V256V241H240Z" fill="black"/>
+</svg>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512">
+  <!-- glyph: hyphen  unicode: - -->
+  <path d="M416 272H96Q90 272 85.5 267.5Q81 263 81 257Q81 251 85.5 246.5Q90 242 96 242H416Q422 242 426.5 246.5Q431 251 431 257Q431 263 426.5 267.5Q422 272 416 272Z" fill="black"/>
+</svg>

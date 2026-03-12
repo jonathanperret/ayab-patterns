@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="0" height="512"
+     viewBox="0 0 0 512">
+  <!-- glyph: bar  unicode: | -->
+  <path d="M-256 448Q-262 448 -266.5 443.5Q-271 439 -271 433V81Q-271 75 -266.5 70.5Q-262 66 -256 66Q-250 66 -245.5 70.5Q-241 75 -241 81V433Q-241 439 -245.5 443.5Q-250 448 -256 448Z" fill="black"/>
+</svg>

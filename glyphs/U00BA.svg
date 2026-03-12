@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512">
+  <!-- glyph: ordmasculine  unicode: º -->
+  <path d="M257 447Q253 447 251 446Q247 444 246 442L86 266Q82 262 82 256Q82 250 86 246L246 70Q247 68 251 66Q253 65 257 65Q261 65 263 66Q267 68 268 70L428 246Q432 250 432 256Q432 262 428 266L268 442Q267 444 263 446Q261 447 257 447ZM117 256 257 410 397 256 257 102Z" fill="black"/>
+</svg>

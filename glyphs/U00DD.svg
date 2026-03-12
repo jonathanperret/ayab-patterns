@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512">
+  <!-- glyph: Yacute  unicode: Ý -->
+  <path d="M65 254Q65 252 69 246V245L165 149Q171 145 176 145Q180 145 182 146Q191 151 191 160V241H432Q438 241 442.5 245.5Q447 250 447 256Q447 262 442.5 266.5Q438 271 432 271H191V352Q191 362 182 366Q173 369 165 363L69 267Q65 261 65 257Z" fill="black"/>
+</svg>
