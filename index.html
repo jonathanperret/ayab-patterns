@@ -192,6 +192,7 @@ button:hover {
     justify-content: center;
     background: white;
     box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .chart-cell img {
@@ -527,9 +528,10 @@ const renderChart = (chartData, container) => {
 
     const grid = document.createElement('div');
     grid.className = 'chart-grid';
-    grid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-    grid.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+    grid.style.display = 'flex';
+    grid.style.flexDirection = 'column';
     grid.style.gap = '0';
+    grid.style.width = `${width * cellSize}px`;
     grid.style.border = 'none';
     grid.style.borderTop = (rows % 5 === 0) ? borderBlack : borderCcc;
     grid.style.borderLeft = borderBlack;
@@ -551,10 +553,17 @@ const renderChart = (chartData, container) => {
         const b = reversed[i];
         const rowFromBottom = rows - 1 - i;
 
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        rowDiv.style.gap = '0';
+        rowDiv.style.height = `${cellSize}px`;
+
         for (let x = 0; x < width; x++) {
             const type = b.cells[x];
             const cell = document.createElement('div');
             cell.className = `chart-cell chart-cell--${type}`;
+            cell.style.width = `${cellSize}px`;
+            cell.style.height = `${cellSize}px`;
             cell.style.borderBottom = (rowFromBottom % 5 === 0) ? borderBlack : borderCcc;
             cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
             
@@ -565,8 +574,9 @@ const renderChart = (chartData, container) => {
                 img.alt = type;
                 cell.appendChild(img);
             }
-            grid.appendChild(cell);
+            rowDiv.appendChild(cell);
         }
+        grid.appendChild(rowDiv);
     }
     container.appendChild(grid);
 };
@@ -593,8 +603,10 @@ const renderTiledChart = (chartData, container) => {
 
     const grid = document.createElement('div');
     grid.className = 'chart-grid';
-    grid.style.gridTemplateColumns = `repeat(${tiledCols}, 0.875rem)`;
-    grid.style.gridTemplateRows = `repeat(${tiledRows}, 0.875rem)`;
+    grid.style.display = 'flex';
+    grid.style.flexDirection = 'column';
+    grid.style.gap = '1px';
+    grid.style.width = 'fit-content';
     grid.style.overflow = 'hidden';
 
     const GLYPH_MAP = {
@@ -610,10 +622,18 @@ const renderTiledChart = (chartData, container) => {
 
     for (let r = 0; r < tiledRows; r++) {
         const patternRow = patternRows[r % numRows];
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        rowDiv.style.gap = '1px';
+        rowDiv.style.height = `14px`;
+
         for (let c = 0; c < tiledCols; c++) {
             const type = patternRow.cells[c % width];
             const cell = document.createElement('div');
             cell.className = `chart-cell chart-cell--${type}`;
+            cell.style.width = `14px`;
+            cell.style.height = `14px`;
+            cell.style.flexShrink = '0';
             const src = GLYPH_MAP[type];
             if (src) {
                 const img = document.createElement('img');
@@ -621,8 +641,9 @@ const renderTiledChart = (chartData, container) => {
                 img.alt = type;
                 cell.appendChild(img);
             }
-            grid.appendChild(cell);
+            rowDiv.appendChild(cell);
         }
+        grid.appendChild(rowDiv);
     }
     container.appendChild(grid);
 };
@@ -661,18 +682,18 @@ const renderPattern = (patternData, container) => {
     wrapper.style.display = 'flex';
 
     const gutterGrid = document.createElement('div');
-    gutterGrid.style.display = 'grid';
-    gutterGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
-    gutterGrid.style.gridTemplateColumns = `${cellSize}px`;
-    gutterGrid.style.gap = '0';
+    gutterGrid.style.display = 'flex';
+    gutterGrid.style.flexDirection = 'column';
+    gutterGrid.style.width = `${cellSize}px`;
     gutterGrid.style.border = 'none';
     gutterGrid.style.background = 'white';
 
     const grid = document.createElement('div');
     grid.className = 'chart-grid';
-    grid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-    grid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
+    grid.style.display = 'flex';
+    grid.style.flexDirection = 'column';
     grid.style.gap = '0';
+    grid.style.width = `${width * cellSize}px`;
     grid.style.border = 'none';
     grid.style.borderTop = (height % 5 === 0) ? borderBlack : borderCcc;
     grid.style.borderLeft = 'none'; // The gutter's right border takes care of this
@@ -684,6 +705,8 @@ const renderPattern = (patternData, container) => {
         
         const gutterCell = document.createElement('div');
         gutterCell.className = 'chart-cell';
+        gutterCell.style.width = `${cellSize}px`;
+        gutterCell.style.height = `${cellSize}px`;
         gutterCell.style.fontSize = `${Math.max(6, cellSize * 0.8)}px`;
         gutterCell.style.fontFamily = 'sans-serif';
         gutterCell.style.color = 'black';
@@ -708,17 +731,25 @@ const renderPattern = (patternData, container) => {
         }
         gutterGrid.appendChild(gutterCell);
 
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        rowDiv.style.gap = '0';
+        rowDiv.style.height = `${cellSize}px`;
+
         for (let x = 0; x < width; x++) {
             const isBlack = rowPixels[x];
             const cell = document.createElement('div');
             cell.className = 'chart-cell';
+            cell.style.width = `${cellSize}px`;
+            cell.style.height = `${cellSize}px`;
             cell.style.borderBottom = (i % 5 === 0) ? borderBlack : borderCcc;
             cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
             if (isBlack) {
                 cell.style.backgroundColor = 'var(--ink)';
             }
-            grid.appendChild(cell);
+            rowDiv.appendChild(cell);
         }
+        grid.appendChild(rowDiv);
     }
     
     wrapper.appendChild(gutterGrid);
@@ -741,8 +772,15 @@ image.addEventListener('load', () => {
 let currentPatternData = null;
 let currentChartData = null;
 
+let lastSizes = new WeakMap();
+
 const paneResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        const lastSize = lastSizes.get(entry.target);
+        if (lastSize && Math.abs(lastSize.width - width) < 1 && Math.abs(lastSize.height - height) < 1) continue;
+        lastSizes.set(entry.target, { width, height });
+
         if (entry.target === imageOutput.parentElement && currentPatternData) {
             renderPattern(currentPatternData, imageOutput);
         } else if (entry.target === chartOutput.parentElement && currentChartData) {
@@ -756,8 +794,15 @@ paneResizeObserver.observe(chartOutput.parentElement);
 const tiledOutput = document.getElementById('tiled-output');
 const patternList = document.getElementById('pattern-list');
 
-const tiledObserver = new ResizeObserver(() => {
-    if (currentChartData) renderTiledChart(currentChartData, tiledOutput);
+const tiledObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        const lastSize = lastSizes.get(entry.target);
+        if (lastSize && Math.abs(lastSize.width - width) < 1 && Math.abs(lastSize.height - height) < 1) continue;
+        lastSizes.set(entry.target, { width, height });
+
+        if (currentChartData) renderTiledChart(currentChartData, tiledOutput);
+    }
 });
 tiledObserver.observe(tiledOutput.parentElement);
 
