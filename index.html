@@ -516,8 +516,8 @@ const renderChart = (chartData, container) => {
     const availW = pane.clientWidth - MARGIN * 2;
     const availH = pane.clientHeight - MARGIN * 2;
     const cellSize = Math.max(1, Math.min(
-        Math.floor((availW - cols - 1) / cols),
-        Math.floor((availH - rows - 1) / rows)
+        (availW - cols - 1) / cols,
+        (availH - rows - 1) / rows
     ));
 
     const width = mergedBlocks[0].cells.length;
@@ -669,8 +669,8 @@ const renderPattern = (patternData, container) => {
     const gridWidth = width + 1;
     
     const cellSize = Math.max(1, Math.min(
-        Math.floor((availW - 1) / gridWidth),
-        Math.floor((availH - 1) / height)
+        (availW - 1) / gridWidth,
+        (availH - 1) / height
     ));
     
     // Scale gridline thickness for very small cell sizes to prevent the pattern from being visually overwhelmed by lines
@@ -691,7 +691,7 @@ const renderPattern = (patternData, container) => {
     for (let y = 0; y < height; y++) {
         const rowPixels = rows[y];
         const i = height - 1 - y;
-        const gutterFontSize = Math.max(1, Math.floor(cellSize * 0.75));
+        const gutterFontSize = Math.max(1, cellSize * 0.75);
 
         const rowDiv = document.createElement('div');
         rowDiv.style.display = 'flex';
