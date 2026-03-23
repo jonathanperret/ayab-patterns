@@ -678,46 +678,48 @@ const renderPattern = (patternData, container) => {
     const borderBlack = `${lineW}px solid black`;
     const borderCcc = `${lineW}px solid #ccc`;
 
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-
-    const gutterGrid = document.createElement('div');
-    gutterGrid.style.display = 'flex';
-    gutterGrid.style.flexDirection = 'column';
-    gutterGrid.style.width = `${cellSize}px`;
-    gutterGrid.style.border = 'none';
-    gutterGrid.style.background = 'white';
-
     const grid = document.createElement('div');
     grid.className = 'chart-grid';
     grid.style.display = 'flex';
     grid.style.flexDirection = 'column';
     grid.style.gap = '0';
-    grid.style.width = `${width * cellSize}px`;
+    grid.style.width = `${(width + 1) * cellSize}px`;
     grid.style.border = 'none';
-    grid.style.borderTop = (height % 5 === 0) ? borderBlack : borderCcc;
-    grid.style.borderLeft = 'none'; // The gutter's right border takes care of this
+    grid.style.borderLeft = 'none';
     grid.style.background = 'transparent';
 
     for (let y = 0; y < height; y++) {
         const rowPixels = rows[y];
         const i = height - 1 - y;
-        
+        const gutterFontSize = Math.max(1, Math.floor(cellSize * 0.75));
+
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        rowDiv.style.gap = '0';
+        rowDiv.style.height = `${cellSize}px`;
+
+        // Gutter cell as first child in row
         const gutterCell = document.createElement('div');
         gutterCell.className = 'chart-cell';
         gutterCell.style.width = `${cellSize}px`;
         gutterCell.style.height = `${cellSize}px`;
-        gutterCell.style.fontSize = `${Math.max(6, cellSize * 0.8)}px`;
+        gutterCell.style.fontSize = `${gutterFontSize}px`;
         gutterCell.style.fontFamily = 'sans-serif';
         gutterCell.style.color = 'black';
+        gutterCell.style.overflow = 'hidden';
+        gutterCell.style.whiteSpace = 'nowrap';
+        gutterCell.style.padding = '0';
+        gutterCell.style.display = 'flex';
+        gutterCell.style.alignItems = 'center';
+        gutterCell.style.justifyContent = 'center';
         gutterCell.style.borderBottom = 'none';
         gutterCell.style.borderRight = borderBlack;
-        
+
         let symbol = '';
         if (ayabSymbols && ayabSymbols.length > i) {
             symbol = ayabSymbols[i];
         }
-        
+
         if (symbol === 'N') {
             const square = document.createElement('div');
             square.className = 'marker-n';
@@ -729,19 +731,19 @@ const renderPattern = (patternData, container) => {
         } else if (symbol && symbol !== '0') {
             gutterCell.textContent = symbol;
         }
-        gutterGrid.appendChild(gutterCell);
+        rowDiv.appendChild(gutterCell);
 
-        const rowDiv = document.createElement('div');
-        rowDiv.style.display = 'flex';
-        rowDiv.style.gap = '0';
-        rowDiv.style.height = `${cellSize}px`;
-
+        // Pattern cells
         for (let x = 0; x < width; x++) {
             const isBlack = rowPixels[x];
             const cell = document.createElement('div');
             cell.className = 'chart-cell';
             cell.style.width = `${cellSize}px`;
             cell.style.height = `${cellSize}px`;
+            // Only add top border for the first row of pattern cells
+            if (y === 0) {
+                cell.style.borderTop = (height % 5 === 0) ? borderBlack : borderCcc;
+            }
             cell.style.borderBottom = (i % 5 === 0) ? borderBlack : borderCcc;
             cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
             if (isBlack) {
@@ -751,10 +753,7 @@ const renderPattern = (patternData, container) => {
         }
         grid.appendChild(rowDiv);
     }
-    
-    wrapper.appendChild(gutterGrid);
-    wrapper.appendChild(grid);
-    container.appendChild(wrapper);
+    container.appendChild(grid);
 };
 
 image.addEventListener('load', () => {
