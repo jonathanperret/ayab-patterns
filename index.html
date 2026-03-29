@@ -243,7 +243,7 @@ iframe {
 </head>
 <body>
 <!-- SVG sprite for glyphs -->
-<svg style="display:none;" xmlns="http://www.w3.org/2000/svg">
+<svg style="display:none;" xmlns="http://www.w3.org/2000/svg" id="glyphs">
     <symbol id="U002D" viewBox="0 0 512 512">
         <path d="M416 272H96Q90 272 85.5 267.5Q81 263 81 257Q81 251 85.5 246.5Q90 242 96 242H416Q422 242 426.5 246.5Q431 251 431 257Q431 263 426.5 267.5Q422 272 416 272Z" fill="black"/>
     </symbol>
@@ -294,6 +294,17 @@ iframe {
 
 
 <script>
+const GLYPH_MAP = {
+    'knit':               'U002D',
+    'hole':               'U006F',
+    'fine-hole':          'U006F',
+    'transfer-right':     'U002F',
+    'transfer-right-end': 'UF055',
+    'transfer-left':      'U005C',
+    'transfer-left-end':  'UF056',
+    'crossover':          'UF06A',
+};
+
 function getAyabSymbols(buffer) {
     try {
         const dataView = new DataView(buffer);
@@ -529,85 +540,70 @@ const generateChartData = (patternData) => {
  * - container: The DOM element to populate
  */
 const renderChart = (chartData, container) => {
-    container.innerHTML = '';
     if (!chartData || chartData.mergedBlocks.length === 0) return;
     const { mergedBlocks } = chartData;
 
     const cols = mergedBlocks[0].cells.length;
     const rows = mergedBlocks.length;
 
+    const patternRows = [...mergedBlocks].reverse();
+
     const MARGIN = 16; // px, ~2rem
     const pane = container.parentElement;
     const availW = pane.clientWidth - MARGIN * 2;
     const availH = pane.clientHeight - MARGIN * 2;
     const cellSize = Math.max(1, Math.min(
-        (availW - cols - 1) / cols,
-        (availH - rows - 1) / rows
+        Math.floor((availW - cols - 1) / cols),
+        Math.floor((availH - rows - 1) / rows)
     ));
 
-    const width = mergedBlocks[0].cells.length;
+    const gridStrokeW = 1;
 
-    const lineW = Math.max(0.1, Math.min(1, cellSize / 5));
-    const borderBlack = `${lineW}px solid black`;
-    const borderCcc = `${lineW}px solid #ccc`;
+    const svgW = cols * cellSize;
+    const svgH = rows * cellSize;
 
-    const grid = document.createElement('div');
-    grid.className = 'chart-grid';
-    grid.style.display = 'flex';
-    grid.style.flexDirection = 'column';
-    grid.style.gap = '0';
-    grid.style.width = `${width * cellSize}px`;
-    grid.style.border = 'none';
-    grid.style.borderTop = (rows % 5 === 0) ? borderBlack : borderCcc;
-    grid.style.borderLeft = borderBlack;
-    grid.style.background = 'transparent';
+    const majorSize = cellSize * 5;
+    const yOffset = svgH % majorSize;
 
-    const GLYPH_MAP = {
-        'knit':               'U002D',
-        'hole':               'U006F',
-        'fine-hole':          'U006F',
-        'transfer-right':     'U002F',
-        'transfer-right-end': 'UF055',
-        'transfer-left':      'U005C',
-        'transfer-left-end':  'UF056',
-        'crossover':          'UF06A',
-    };
+    const cellPaddingPx = 1;
 
-    const reversed = [...mergedBlocks].reverse();
-    for (let i = 0; i < reversed.length; i++) {
-        const b = reversed[i];
-        const rowFromBottom = rows - 1 - i;
+    const glyphSizePx = cellSize - cellPaddingPx * 2;
 
-        const rowDiv = document.createElement('div');
-        rowDiv.style.display = 'flex';
-        rowDiv.style.gap = '0';
-        rowDiv.style.height = `${cellSize}px`;
-
-        for (let x = 0; x < width; x++) {
-            const type = b.cells[x];
-            const cell = document.createElement('div');
-            cell.className = `chart-cell chart-cell--${type}`;
-            cell.style.width = `${cellSize}px`;
-            cell.style.height = `${cellSize}px`;
-            cell.style.borderBottom = (rowFromBottom % 5 === 0) ? borderBlack : borderCcc;
-            cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
-
+    const chartCells = patternRows.flatMap((patternRow, r) => 
+        patternRow.cells.map((type, c) => {
             const symbolId = GLYPH_MAP[type];
             if (symbolId) {
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', '100%');
-                svg.setAttribute('height', '100%');
-                svg.setAttribute('viewBox', '0 0 32 32');
-                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${symbolId}`);
-                svg.appendChild(use);
-                cell.appendChild(svg);
+                const cx = c * cellSize + cellPaddingPx;
+                const cy = r * cellSize + cellPaddingPx;
+                return `<use href=\"#${symbolId}\" x=\"${cx}\" y=\"${cy}\" width=\"${glyphSizePx}\" height=\"${glyphSizePx}\" />`;
             }
-            rowDiv.appendChild(cell);
-        }
-        grid.appendChild(rowDiv);
+            return '';
+        })
+    ).join('');
+
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+            <defs>
+                ${document.getElementById('glyphs').innerHTML}
+                <pattern id="minorGrid" width="${cellSize}" height="${cellSize}" patternUnits="userSpaceOnUse">
+                    <path d="M ${cellSize} 0 L 0 0 0 ${cellSize}" fill="none" stroke="#e0e0e0" stroke-width="${gridStrokeW}" />
+                </pattern>
+
+                <pattern id="majorGrid" x="0" y="${yOffset}" width="${majorSize}" height="${majorSize}" patternUnits="userSpaceOnUse">
+                    <rect width="${majorSize}" height="${majorSize}" fill="url(#minorGrid)" />
+                    <path d="M ${majorSize} 0 L 0 0 0 ${majorSize}" fill="none" stroke="black" stroke-width="${gridStrokeW}" />
+                </pattern>
+            </defs>
+            <rect width="${svgW}" height="${svgH}" fill="white" />
+            <rect width="${svgW}" height="${svgH}" fill="url(#majorGrid)" stroke="black" stroke-width="${gridStrokeW}" />
+            ${chartCells}
+        </svg>
+    `;
+
+    if (!container.shadowRoot) {
+        container.attachShadow({ mode: 'open' });
     }
-    container.appendChild(grid);
+    container.shadowRoot.innerHTML = svg;
 };
 
 /**
@@ -617,7 +613,6 @@ const renderChart = (chartData, container) => {
  * - container: The DOM element to populate
  */
 const renderTiledChart = (chartData, container) => {
-    container.innerHTML = '';
     if (!chartData || chartData.mergedBlocks.length === 0) return;
     const { mergedBlocks } = chartData;
 
@@ -625,60 +620,48 @@ const renderTiledChart = (chartData, container) => {
     const numRows = patternRows.length;
     const width = patternRows[0].cells.length;
 
-    const CELL_SIZE_PX = 14; // 0.875rem at 16px base
+    const cellSize = 18;
+    const cellPaddingPx = 0;
     const pane = container.parentElement;
-    const tiledCols = Math.max(1, Math.floor(pane.clientWidth / CELL_SIZE_PX));
-    const tiledRows = Math.max(1, Math.floor(pane.clientHeight / CELL_SIZE_PX));
 
-    const grid = document.createElement('div');
-    grid.className = 'chart-grid';
-    grid.style.display = 'flex';
-    grid.style.flexDirection = 'column';
-    grid.style.gap = '1px';
-    grid.style.width = 'fit-content';
-    grid.style.overflow = 'hidden';
-
-    const GLYPH_MAP = {
-        'knit':               'U002D',
-        'hole':               'U006F',
-        'fine-hole':          'U006F',
-        'transfer-right':     'U002F',
-        'transfer-right-end': 'UF055',
-        'transfer-left':      'U005C',
-        'transfer-left-end':  'UF056',
-        'crossover':          'UF06A',
-    };
-
-    for (let r = 0; r < tiledRows; r++) {
-        const patternRow = patternRows[r % numRows];
-        const rowDiv = document.createElement('div');
-        rowDiv.style.display = 'flex';
-        rowDiv.style.gap = '1px';
-        rowDiv.style.height = `14px`;
-
-        for (let c = 0; c < tiledCols; c++) {
-            const type = patternRow.cells[c % width];
-            const cell = document.createElement('div');
-            cell.className = `chart-cell chart-cell--${type}`;
-            cell.style.width = `14px`;
-            cell.style.height = `14px`;
-            cell.style.flexShrink = '0';
+    const svgW = pane.clientWidth;
+    const svgH = pane.clientHeight;
+    
+    const glyphSizePx = cellSize - cellPaddingPx * 2;
+    
+    const tiledChartCells = patternRows.flatMap((patternRow, r) => 
+        patternRow.cells.map((type, c) => {
             const symbolId = GLYPH_MAP[type];
             if (symbolId) {
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', '100%');
-                svg.setAttribute('height', '100%');
-                svg.setAttribute('viewBox', '0 0 32 32');
-                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${symbolId}`);
-                svg.appendChild(use);
-                cell.appendChild(svg);
+                const cx = c * cellSize + cellPaddingPx;
+                const cy = r * cellSize + cellPaddingPx;
+                return `<use href=\"#${symbolId}\" x=\"${cx}\" y=\"${cy}\" width=\"${glyphSizePx}\" height=\"${glyphSizePx}\" />`;
             }
-            rowDiv.appendChild(cell);
-        }
-        grid.appendChild(rowDiv);
+            return '';
+        })
+    ).join('');
+
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+            <defs>
+                ${document.getElementById('glyphs').innerHTML}
+                <pattern id="gridPattern" width="${cellSize}" height="${cellSize}" patternUnits="userSpaceOnUse">
+                    <path d="M ${cellSize} 0 L 0 0 0 ${cellSize}" fill="none" stroke="lightgrey" stroke-width="1" />
+                </pattern>
+                <pattern id="tiledChartPattern" width="${cellSize * width}" height="${cellSize * numRows}" patternUnits="userSpaceOnUse">
+                    <rect width="${cellSize * width}" height="${cellSize * numRows}" fill="url(#gridPattern)" />
+                    ${tiledChartCells}
+                </pattern>
+            </defs>
+            <rect width="${svgW}" height="${svgH}" fill="white" />
+            <rect width="${svgW}" height="${svgH}" fill="url(#tiledChartPattern)" />
+        </svg>
+    `;
+
+    if (!container.shadowRoot) {
+        container.attachShadow({ mode: 'open' });
     }
-    container.appendChild(grid);
+    container.shadowRoot.innerHTML = svg;
 };
 
 /**
