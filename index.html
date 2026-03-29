@@ -136,7 +136,7 @@ button:hover {
 
 .viewer-content {
     display: grid;
-    grid-template-columns: 30% 1fr;
+    grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr;
     min-height: 0;
 }
@@ -239,6 +239,29 @@ iframe {
         max-height: 45vh;
     }
 }
+.right-column {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    min-height: 0;
+    overflow: hidden;
+}
+.photo-pane {
+    background: var(--panel);
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+}
+#photo-frame {
+    display: block;
+    margin: auto;
+    border: 0;
+    background: white;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
 </style>
 </head>
 <body>
@@ -285,8 +308,13 @@ iframe {
                     <div id="chart-output"></div>
                 </div>
             </div>
-            <div class="viewer-pane chart-pane">
-                <div id="tiled-output"></div>
+            <div class="right-column">
+                <div class="viewer-pane photo-pane">
+                    <img id="photo-frame" alt="Pattern photo" />
+                </div>
+                <div class="viewer-pane chart-pane">
+                    <div id="tiled-output"></div>
+                </div>
             </div>
         </div>
     </main>
@@ -369,6 +397,7 @@ const patterns = [
             number,
             label: `StitchWorld3 #${number}`,
             imageFile: `StitchWorld3/${number}.png`,
+            photoFile: `StitchWorld3/${number}.jpg`,
         };
     })
 ];
@@ -376,6 +405,7 @@ const patterns = [
 const image = new Image();
 const imageOutput = document.getElementById('image-output');
 const chartOutput = document.getElementById('chart-output');
+const photoFrame = document.getElementById('photo-frame');
 
 /**
  * Reads image pixels into a boolean 2D array and packages the symbols.
@@ -830,7 +860,9 @@ function updateViewer(pattern) {
     imageOutput.innerHTML = '';
     chartOutput.innerHTML = '';
     tiledOutput.innerHTML = '';
-    
+    photoFrame.src = pattern.photoFile || '';
+    photoFrame.style.display = pattern.photoFile ? 'block' : 'none';
+
     fetch(pattern.imageFile)
         .then(res => res.arrayBuffer())
         .then(buffer => {
