@@ -242,6 +242,30 @@ iframe {
 </style>
 </head>
 <body>
+<!-- SVG sprite for glyphs -->
+<svg style="display:none;" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="U002D" viewBox="0 0 512 512">
+        <path d="M416 272H96Q90 272 85.5 267.5Q81 263 81 257Q81 251 85.5 246.5Q90 242 96 242H416Q422 242 426.5 246.5Q431 251 431 257Q431 263 426.5 267.5Q422 272 416 272Z" fill="black"/>
+    </symbol>
+    <symbol id="U006F" viewBox="0 0 512 512">
+        <path d="M256 448Q217 448 182.0 433.0Q147 418 121.0 392.0Q95 366 80.0 331.0Q65 296 65 257Q65 218 80.0 183.0Q95 148 121.0 122.0Q147 96 182.0 81.0Q217 66 256 66Q295 66 330.0 81.0Q365 96 391.0 122.0Q417 148 432.0 183.0Q447 218 447 257Q447 296 432.0 331.0Q417 366 391.0 392.0Q365 418 330.0 433.0Q295 448 256 448ZM256 96Q223 96 193.5 108.5Q164 121 142.0 143.0Q120 165 107.5 194.5Q95 224 95 257Q95 290 107.5 319.5Q120 349 142.0 371.0Q164 393 193.5 405.5Q223 418 256 418Q289 418 318.5 405.5Q348 393 370.0 371.0Q392 349 404.5 319.5Q417 290 417 257Q417 224 404.5 194.5Q392 165 370.0 143.0Q348 121 318.5 108.5Q289 96 256 96Z" fill="black"/>
+    </symbol>
+    <symbol id="U002F" viewBox="0 0 512 512">
+        <path d="M96 448Q90 448 86 444Q81 439 81 433Q81 427 85 423L405 71Q410 66 416 66Q422 66 426 70Q431 75 431 81Q431 87 427 91L107 443Q102 448 96 448Z" fill="black"/>
+    </symbol>
+    <symbol id="UF055" viewBox="0 0 512 512">
+        <path d="M427 423Q431 427 431 433Q431 439 426 444Q422 448 416 448Q410 448 405 443L256 279L107 443Q102 448 96 448Q90 448 86 444Q81 439 81 433Q81 427 85 423L245 247L405 71Q410 66 416 66Q422 66 426 70Q431 75 431 81Q431 87 427 91L276 257Z" fill="black"/>
+    </symbol>
+    <symbol id="U005C" viewBox="0 0 512 512">
+        <path d="M416 448Q410 448 405 443L85 91Q81 87 81 81Q81 75 86 70Q90 66 96 66Q102 66 107 71L427 423Q431 427 431 433Q431 439 426 444Q422 448 416 448Z" fill="black"/>
+    </symbol>
+    <symbol id="UF056" viewBox="0 0 512 512">
+        <path d="M427 423Q431 427 431 433Q431 439 426 444Q422 448 416 448Q410 448 405 443L256 279L107 443Q102 448 96 448Q90 448 86 444Q81 439 81 433Q81 427 85 423L236 257L85 91Q81 87 81 81Q81 75 86 70Q90 66 96 66Q102 66 107 71L267 247L427 423Z" fill="black"/>
+    </symbol>
+    <symbol id="UF06A" viewBox="0 0 512 512">
+        <path d="M427 422Q431 426 431 432Q431 438 426 443Q422 447 416 447Q410 447 405 442L271 295V432Q271 438 266.5 442.5Q262 447 256 447Q250 447 245.5 442.5Q241 438 241 432V295L107 442Q102 447 96 447Q90 447 86 443Q81 438 81 432Q81 426 85 422L241 250V80Q241 74 245.5 69.5Q250 65 256 65Q262 65 266.5 69.5Q271 74 271 80V250L427 422Z" fill="black"/>
+    </symbol>
+</svg>
 <div class="layout">
     <aside class="sidebar">
         <div class="sidebar-top">
@@ -267,6 +291,7 @@ iframe {
         </div>
     </main>
 </div>
+
 
 <script>
 function getAyabSymbols(buffer) {
@@ -538,14 +563,14 @@ const renderChart = (chartData, container) => {
     grid.style.background = 'transparent';
 
     const GLYPH_MAP = {
-        'knit':               'glyphs/U002D.svg',
-        'hole':               'glyphs/U006F.svg',
-        'fine-hole':          'glyphs/U006F.svg',
-        'transfer-right':     'glyphs/U002F.svg',
-        'transfer-right-end': 'glyphs/UF055.svg',
-        'transfer-left':      'glyphs/U005C.svg',
-        'transfer-left-end':  'glyphs/UF056.svg',
-        'crossover':          'glyphs/UF06A.svg',
+        'knit':               'U002D',
+        'hole':               'U006F',
+        'fine-hole':          'U006F',
+        'transfer-right':     'U002F',
+        'transfer-right-end': 'UF055',
+        'transfer-left':      'U005C',
+        'transfer-left-end':  'UF056',
+        'crossover':          'UF06A',
     };
 
     const reversed = [...mergedBlocks].reverse();
@@ -566,13 +591,17 @@ const renderChart = (chartData, container) => {
             cell.style.height = `${cellSize}px`;
             cell.style.borderBottom = (rowFromBottom % 5 === 0) ? borderBlack : borderCcc;
             cell.style.borderRight = ((x + 1) % 5 === 0) ? borderBlack : borderCcc;
-            
-            const src = GLYPH_MAP[type];
-            if (src) {
-                const img = document.createElement('img');
-                img.src = src;
-                img.alt = type;
-                cell.appendChild(img);
+
+            const symbolId = GLYPH_MAP[type];
+            if (symbolId) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', '100%');
+                svg.setAttribute('viewBox', '0 0 32 32');
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${symbolId}`);
+                svg.appendChild(use);
+                cell.appendChild(svg);
             }
             rowDiv.appendChild(cell);
         }
@@ -610,14 +639,14 @@ const renderTiledChart = (chartData, container) => {
     grid.style.overflow = 'hidden';
 
     const GLYPH_MAP = {
-        'knit':               'glyphs/U002D.svg',
-        'hole':               'glyphs/U006F.svg',
-        'fine-hole':          'glyphs/U006F.svg',
-        'transfer-right':     'glyphs/U002F.svg',
-        'transfer-right-end': 'glyphs/UF055.svg',
-        'transfer-left':      'glyphs/U005C.svg',
-        'transfer-left-end':  'glyphs/UF056.svg',
-        'crossover':          'glyphs/UF06A.svg',
+        'knit':               'U002D',
+        'hole':               'U006F',
+        'fine-hole':          'U006F',
+        'transfer-right':     'U002F',
+        'transfer-right-end': 'UF055',
+        'transfer-left':      'U005C',
+        'transfer-left-end':  'UF056',
+        'crossover':          'UF06A',
     };
 
     for (let r = 0; r < tiledRows; r++) {
@@ -634,12 +663,16 @@ const renderTiledChart = (chartData, container) => {
             cell.style.width = `14px`;
             cell.style.height = `14px`;
             cell.style.flexShrink = '0';
-            const src = GLYPH_MAP[type];
-            if (src) {
-                const img = document.createElement('img');
-                img.src = src;
-                img.alt = type;
-                cell.appendChild(img);
+            const symbolId = GLYPH_MAP[type];
+            if (symbolId) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', '100%');
+                svg.setAttribute('viewBox', '0 0 32 32');
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${symbolId}`);
+                svg.appendChild(use);
+                cell.appendChild(svg);
             }
             rowDiv.appendChild(cell);
         }
